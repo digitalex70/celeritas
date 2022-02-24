@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/CloudyKit/jet/v6"
 	"github.com/digitalex70/celeritas/render"
 	"github.com/go-chi/chi/v5"
 	"github.com/joho/godotenv"
@@ -24,7 +25,9 @@ type Celeritas struct {
 	RootPath string
 	Routes   *chi.Mux
 	Render   *render.Render
-	config   config
+	JetViews *jet.Set
+
+	config config
 }
 
 type config struct {
@@ -52,8 +55,8 @@ func (c *Celeritas) New(rootPath string) error {
 	if err != nil {
 		return err
 	}
-	//Create logggers
-	infoLog, errorLog := c.startsLoggger()
+	//Create loggers
+	infoLog, errorLog := c.startsLogger()
 	c.InfoLog = infoLog
 	c.ErrorLog = errorLog
 	c.Debug, _ = strconv.ParseBool(os.Getenv("DEBUG"))
@@ -64,6 +67,12 @@ func (c *Celeritas) New(rootPath string) error {
 		port:     os.Getenv("PORT"),
 		renderer: os.Getenv("RENDERER"),
 	}
+	var views = jet.NewSet(
+		jet.NewOSFileSystemLoader(fmt.Sprintf("%s/views", rootPath)),
+		jet.InDevelopmentMode(),
+	)
+	c.JetViews = views
+
 	c.createRenderer()
 	return nil
 }
@@ -103,7 +112,7 @@ func (c *Celeritas) checkDotEnv(path string) error {
 	return nil
 }
 
-func (c *Celeritas) startsLoggger() (*log.Logger, *log.Logger) {
+func (c *Celeritas) startsLogger() (*log.Logger, *log.Logger) {
 	var infoLog *log.Logger
 	var errorLog *log.Logger
 
@@ -112,11 +121,13 @@ func (c *Celeritas) startsLoggger() (*log.Logger, *log.Logger) {
 	return infoLog, errorLog
 }
 
+//createRenderer
 func (c *Celeritas) createRenderer() {
 	myRenderer := render.Render{
 		Renderer: c.config.renderer,
 		RootPath: c.RootPath,
 		Port:     c.config.port,
+		JetViews: c.JetViews,
 	}
 	c.Render = &myRenderer
 }
